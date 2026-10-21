@@ -1,151 +1,95 @@
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='streamlit dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+# Set up the website title
+st.set_page_config(page_title="Jah Yummies Treats", page_icon="🎂")
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Create tabs layout in your website (Fixed the order so tab4 matches CONTACTS and tab5 matches CONVERTER)
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["LOGIN", "HOME", "MENU", "CURRENCY CONVERTER", "CONTACTS"])
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# --- TAB 1: LOGIN ---
+with tab1:
+    st.header("Jah Yummies Treats")
+    st.subheader("Welcome to our login page")
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+    # Use st.text_input instead of input()
+    name = st.text_input("What is your name?", key="login_name")
+    if name:
+        st.write(f"Hi {name}!")
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    contact = st.text_input("Enter your email or phone number:", key="login_contact")
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+# --- TAB 2: HOME ---
+with tab2:
+    st.header("Welcome to our home tab")
+    st.write(
+        "JAH YUMMIES TREATS is a local bakery and custom cake business based in Dar es Salaam, Tanzania (locally based in Goba and Makongo juu).")
+    st.write("Jah yummies treats is a custom bakery owned by a magnificent CEO named Lourin Jimmy Louis.")
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+    hearing_source = st.text_input("Where did you hear about Jah Yummies Treats?", key="home_source")
+    if hearing_source:
+        st.write("Ohhh that's nice!")
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    st.subheader("Meet the Products")
+    st.write("First, we have a bread and snack corner:")
 
-    return gdp_df
+    # Products with Image Placeholders
+    st.write("- French Bread")
+    # st.image("french_bread.jpg", caption="French Bread", width=300)
 
-gdp_df = get_gdp_data()
+    st.write("- Cinnamon Rolls")
+    # st.image("cinnamon_rolls.jpg", caption="Cinnamon Rolls", width=300)
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
+    st.write("- Cookies")
+    # st.image("cookies.jpg", caption="Cookies", width=300)
 
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
+    st.write("- Donuts")
+    # st.image("donuts.jpg", caption="Donuts", width=300)
 
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
+    st.write("- And more!")
 
-# Add some spacing
-''
-''
+# --- TAB 3: MENU ---
+with tab3:
+    st.header("Welcome to our Menu")
+    # st.image("menu_banner.jpg", use_container_width=True)
+    import streamlit as st
 
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
+    st.title("Jah Yummies Treats 🧁")
+    st.subheader("Freshly Baked Delights")
 
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
+    # Display the image on the web page
+    st.image("menu.jpg", caption="Delicious", use_container_width=True)
 
-countries = gdp_df['Country Code'].unique()
+    st.write("Our payments are in TZS, but you can change currencies in our converter tab.")
 
-if not len(countries):
-    st.warning("Select at least one country")
+# --- TAB 4: CURRENCY CONVERTER ---
+with tab4:
+    st.header("Currency Converter")
 
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
+    # Use st.selectbox for a cleaner web dropdown menu
+    unit = st.selectbox("Select Currency to convert to TZS:", ["Select...", "USD", "YEN", "POUNDS"])
 
-''
-''
-''
+    if unit == "USD":
+        amount = st.number_input("What is your USD amount?", min_value=0.0, step=1.0)
+        if amount > 0:
+            st.success(f"The price in TZS is: {amount * 2630:,.2f} TZS")
 
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
+    elif unit == "YEN":
+        amount = st.number_input("What is your YEN amount?", min_value=0.0, step=1.0)
+        if amount > 0:
+            st.success(f"The price in TZS is: {amount * 16.74:,.2f} TZS")
 
-st.header('GDP over time', divider='gray')
+    elif unit == "POUNDS":
+        amount = st.number_input("What is your POUNDS amount?", min_value=0.0, step=1.0)
+        if amount > 0:
+            st.success(f"The price in TZS is: {amount * 3521.52:,.2f} TZS")
 
-''
+# --- TAB 5: CONTACTS ---
+with tab5:
+    st.header("Contact Us")
+    st.write("You can contact us through:")
 
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
+    # st.image("contact_icons.png", width=200)
+    st.write("📞 Phone: [0749622373]")
+    st.write("📸 Instagram: @jah_yummies_treats")
 
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+    st.info("THANK YOU FOR BEING A MEMBER OF THE JAH YUMMIES FAMILY!")
