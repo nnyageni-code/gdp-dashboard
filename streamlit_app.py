@@ -1,95 +1,163 @@
+from datetime import datetime
+import time
 import streamlit as st
 
-# Set up the website title
-st.set_page_config(page_title="Jah Yummies Treats", page_icon="🎂")
+st.set_page_config(page_title="Private 3-Person Chat", page_icon="🔔", layout="centered")
 
-# Create tabs layout in your website (Fixed the order so tab4 matches CONTACTS and tab5 matches CONVERTER)
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["LOGIN", "HOME", "MENU", "CURRENCY CONVERTER", "CONTACTS"])
+ALLOWED_EMAILS = [
+    "nnyageni@gmail.com",
+    "lourinlouis@gmail.com",
+    "jnyageni@gmail.com",
+]
 
-# --- TAB 1: LOGIN ---
-with tab1:
-    st.header("Jah Yummies Treats")
-    st.subheader("Welcome to our login page")
 
-    # Use st.text_input instead of input()
-    name = st.text_input("What is your name?", key="login_name")
-    if name:
-        st.write(f"Hi {name}!")
+@st.cache_resource
+def get_chat_store():
+    """Shared in-memory message log across sessions on this Streamlit server."""
+    return {
+        "messages": [
+            {
+                "id": 1,
+                "sender": "System",
+                "recipients": list(ALLOWED_EMAILS),
+                "text": "Private room active. You will be notified when new messages arrive.",
+                "time": datetime.now().strftime("%H:%M"),
+            }
+        ],
+        "next_id": 2,
+    }
 
-    contact = st.text_input("Enter your email or phone number:", key="login_contact")
 
-# --- TAB 2: HOME ---
-with tab2:
-    st.header("Welcome to our home tab")
-    st.write(
-        "JAH YUMMIES TREATS is a local bakery and custom cake business based in Dar es Salaam, Tanzania (locally based in Goba and Makongo juu).")
-    st.write("Jah yummies treats is a custom bakery owned by a magnificent CEO named Lourin Jimmy Louis.")
+store = get_chat_store()
 
-    hearing_source = st.text_input("Where did you hear about Jah Yummies Treats?", key="home_source")
-    if hearing_source:
-        st.write("Ohhh that's nice!")
+if "authenticated_email" not in st.session_state:
+    st.session_state.authenticated_email = None
+if "last_seen_id" not in st.session_state:
+    st.session_state.last_seen_id = 0
+if "notification_banner" not in st.session_state:
+    st.session_state.notification_banner = None
 
-    st.subheader("Meet the Products")
-    st.write("First, we have a bread and snack corner:")
+# --- Login / Access Gate ---
+if st.session_state.authenticated_email is None:
+    st.title("Private 3-Person Chat")
+    st.caption("Restricted to nnyageni@gmail.com, lourinlouis@gmail.com, and jnyageni@gmail.com.")
 
-    # Products with Image Placeholders
-    st.write("- French Bread")
-    # st.image("french_bread.jpg", caption="French Bread", width=300)
+    with st.form("login_form"):
+        email_input = st.text_input("Enter your email address", placeholder="name@gmail.com")
+        submitted = st.form_submit_button("Enter Chat")
 
-    st.write("- Cinnamon Rolls")
-    # st.image("cinnamon_rolls.jpg", caption="Cinnamon Rolls", width=300)
+    if submitted:
+        normalized = email_input.strip().lower()
+        if normalized in ALLOWED_EMAILS:
+            st.session_state.authenticated_email = normalized
+            # Mark existing messages as seen on initial login
+            st.session_state.last_seen_id = store["next_id"] - 1
+            st.session_state.notification_banner = None
+            st.rerun()
+        else:
+            st.error("Access denied. Only those three email addresses can access this app.")
+    st.stop()
 
-    st.write("- Cookies")
-    # st.image("cookies.jpg", caption="Cookies", width=300)
+# --- Authenticated Chat Room ---
+current_user = st.session_state.authenticated_email
 
-    st.write("- Donuts")
-    # st.image("donuts.jpg", caption="Donuts", width=300)
+# Check for new incoming messages addressed to current_user from someone else
+incoming_new = [
+    m
+    for m in store["messages"]
+    if m["id"] > st.session_state.last_seen_id
+    and m["sender"] != current_user
+    and current_user in m.get("recipients", ALLOWED_EMAILS)
+]
 
-    st.write("- And more!")
+if incoming_new:
+    latest = incoming_new[-1]
+    if len(incoming_new) == 1:
+        notice = f"🔔 New message from {latest['sender']} ({latest['time']}): \"{latest['text']}\""
+    else:
+        notice = f"🔔 You have {len(incoming_new)} new messages. Latest from {latest['sender']}: \"{latest['text']}\""
 
-# --- TAB 3: MENU ---
-with tab3:
-    st.header("Welcome to our Menu")
-    # st.image("menu_banner.jpg", use_container_width=True)
-    import streamlit as st
+    st.session_state.notification_banner = notice
+    st.toast(notice, icon="🔔")
+    st.session_state.last_seen_id = max(m["id"] for m in store["messages"])
 
-    st.title("Jah Yummies Treats 🧁")
-    st.subheader("Freshly Baked Delights")
+top_left, top_mid, top_right = st.columns([3, 1.3, 1])
+with top_left:
+    st.title("Private Chat")
+    st.caption(f"Signed in as **{current_user}**")
+with top_mid:
+    st.write("")
+    if st.button("🔄 Refresh"):
+        st.rerun()
+with top_right:
+    st.write("")
+    if st.button("Switch User"):
+        st.session_state.authenticated_email = None
+        st.session_state.notification_banner = None
+        st.rerun()
 
-    # Display the image on the web page
-    st.image("menu.jpg", caption="Delicious", use_container_width=True)
+# Show persistent notification banner until dismissed or cleared
+if st.session_state.notification_banner:
+    banner_col, dismiss_col = st.columns([5, 1])
+    with banner_col:
+        st.info(st.session_state.notification_banner)
+    with dismiss_col:
+        st.write("")
+        if st.button("Dismiss"):
+            st.session_state.notification_banner = None
+            st.rerun()
 
-    st.write("Our payments are in TZS, but you can change currencies in our converter tab.")
+auto_refresh = st.toggle("Auto-check for new messages (every 3s)", value=True)
 
-# --- TAB 4: CURRENCY CONVERTER ---
-with tab4:
-    st.header("Currency Converter")
+# --- Email Recipient Selection ---
+other_emails = [e for e in ALLOWED_EMAILS if e != current_user]
+target_choice = st.radio(
+    "Send message to which email?",
+    options=["All (all 3 emails)"] + other_emails,
+    horizontal=True,
+)
 
-    # Use st.selectbox for a cleaner web dropdown menu
-    unit = st.selectbox("Select Currency to convert to TZS:", ["Select...", "USD", "YEN", "POUNDS"])
+if target_choice == "All (all 3 emails)":
+    selected_recipients = list(ALLOWED_EMAILS)
+else:
+    selected_recipients = [current_user, target_choice]
 
-    if unit == "USD":
-        amount = st.number_input("What is your USD amount?", min_value=0.0, step=1.0)
-        if amount > 0:
-            st.success(f"The price in TZS is: {amount * 2630:,.2f} TZS")
+# --- Chat Feed ---
+chat_container = st.container(height=380)
+with chat_container:
+    for msg in store["messages"]:
+        recipients = msg.get("recipients", ALLOWED_EMAILS)
+        if current_user not in recipients:
+            continue
 
-    elif unit == "YEN":
-        amount = st.number_input("What is your YEN amount?", min_value=0.0, step=1.0)
-        if amount > 0:
-            st.success(f"The price in TZS is: {amount * 16.74:,.2f} TZS")
+        is_mine = msg["sender"] == current_user
+        other_targets = [r for r in recipients if r != msg["sender"]]
+        to_label = ", ".join(other_targets) if other_targets else msg["sender"]
 
-    elif unit == "POUNDS":
-        amount = st.number_input("What is your POUNDS amount?", min_value=0.0, step=1.0)
-        if amount > 0:
-            st.success(f"The price in TZS is: {amount * 3521.52:,.2f} TZS")
+        with st.chat_message("user" if is_mine else "assistant"):
+            st.markdown(f"**{msg['sender']}** → `{to_label}` · *{msg['time']}*")
+            st.write(msg["text"])
 
-# --- TAB 5: CONTACTS ---
-with tab5:
-    st.header("Contact Us")
-    st.write("You can contact us through:")
+# --- Send Message ---
+prompt = st.chat_input(f"Write a message to {target_choice}...")
+if prompt:
+    text = prompt.strip()
+    if text:
+        msg_id = store["next_id"]
+        store["next_id"] += 1
+        store["messages"].append(
+            {
+                "id": msg_id,
+                "sender": current_user,
+                "recipients": selected_recipients,
+                "text": text,
+                "time": datetime.now().strftime("%H:%M"),
+            }
+        )
+        store["messages"][:] = store["messages"][-200:]
+        st.session_state.last_seen_id = max(st.session_state.last_seen_id, msg_id)
+        st.rerun()
 
-    # st.image("contact_icons.png", width=200)
-    st.write("📞 Phone: [0749622373]")
-    st.write("📸 Instagram: @jah_yummies_treats")
-
-    st.info("THANK YOU FOR BEING A MEMBER OF THE JAH YUMMIES FAMILY!")
+if auto_refresh:
+    time.sleep(3)
+    st.rerun()
